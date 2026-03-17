@@ -1,0 +1,24 @@
+{
+  "name": "mcp-tools",
+  "version": "1.0.0",
+  "description": "Local MCP server with custom tools for GitHub Copilot",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mcp-tools": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
