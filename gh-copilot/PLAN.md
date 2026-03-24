@@ -224,7 +224,7 @@ Tasks are picked in alphabetical/priority order. The supervisor moves them betwe
 1. Invoke `supervisor` with: *"Start or continue processing tasks. Read your state file if it exists."*
 2. Read the supervisor's return value:
    - If `CALL_WORKER`: Invoke `worker` with: *"Read tasks/in-progress/worker-prompt.md and execute the subtask. Write your result to tasks/in-progress/worker-result.md."*
-   - If `TASK_DONE`: Call `confirm_conversation_finished` with the task summary, then loop back to step 1 for the next task
+   - If `TASK_DONE`: Loop back to step 1 for the next task
    - If `ALL_DONE`: Call `confirm_conversation_finished` with final summary and stop
 3. After worker returns, loop back to step 1 (supervisor reads the result next round)
 
