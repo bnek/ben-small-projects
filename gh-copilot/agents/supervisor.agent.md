@@ -89,7 +89,7 @@ The signal MUST appear on its own dedicated line. Do not embed it in a sentence.
    - [ ] Specific verifiable criteria
    ```
 
-7. **Delete any stale worker-result.md** if one exists from a previous round.
+7. **Delete any stale worker-result.md**: Run `Remove-Item -Path "tasks/in-progress/worker-result.md" -ErrorAction SilentlyContinue` to ensure the worker starts clean. This is critical — the orchestrator does NOT handle this cleanup.
 
 8. **Return with signal**:
    > Written worker prompt for subtask 1 of 4: "{subtask title}"
@@ -114,7 +114,7 @@ The signal MUST appear on its own dedicated line. Do not embed it in a sentence.
 
    - **More subtasks remain**:
      1. Write the next subtask to `tasks/in-progress/worker-prompt.md`
-     2. Delete `tasks/in-progress/worker-result.md`
+     2. Delete stale result: `Remove-Item -Path "tasks/in-progress/worker-result.md" -ErrorAction SilentlyContinue` (the orchestrator does NOT do this)
      3. Update state file: advance `current_subtask_index`, set `status: worker_prompted`
      4. Return with `SIGNAL: CALL_WORKER`
 
