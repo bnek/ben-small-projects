@@ -43,7 +43,7 @@ If the response does NOT contain `ALL_DONE`:
 
 Invoke the `worker` agent with exactly:
 
-> "Read tasks/in-progress/worker-prompt.md and execute the task described in it. Write your result to tasks/in-progress/worker-result.md. The task may have been partially completed in a prior run — check existing state before executing."
+> "Read the task file in tasks/in-progress/ (the .md file that is NOT worker-result.md or README.md) and execute the task described in it. Write your result to tasks/in-progress/worker-result.md.
 
 After the worker returns, go to **Step 1**.
 
