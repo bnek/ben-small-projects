@@ -2,9 +2,9 @@
 
 ## Overview
 
-A three-tier agent delegation system where the top-level orchestrator runs indefinitely without consuming its own context window. All planning, reasoning, and execution happen in disposable sub-agent invocations.
+A three-tier agent delegation system where the top-level orchestrator runs indefinitely without consuming its own context window. The supervisor owns the full task lifecycle — picking tasks, spawning worker sub-agents with complete context, reviewing results, and moving completed tasks to done.
 
-**Key constraint:** Sub-agent recursion depth is limited to 1. The orchestrator can spawn the supervisor or the worker, but the supervisor **cannot** spawn the worker itself. This means the system must be **iterative** (orchestrator drives the loop) rather than **recursive** (supervisor delegates to worker).
+**Key capability:** Sub-agents can spawn nested sub-agents. The supervisor invokes workers directly, eliminating the need for file-based communication between supervisor and worker.
 
 ## Architecture
 
@@ -20,91 +20,116 @@ A three-tier agent delegation system where the top-level orchestrator runs indef
 │  ─────────────────────────────────────────────────  │
 │  • Zero planning, zero analysis                     │
 │  • Only tools: agent, confirm_conversation_finished │
-│  • Fixed alternating loop:                          │
+│  • Fixed loop:                                      │
 │      1. Invoke supervisor (one fixed prompt always) │
 │      2. If ALL_DONE → stop                          │
-│      3. Invoke worker (one fixed prompt always)     │
-│      4. Go to 1                                     │
+│      3. Go to 1                                     │
 │  • Context window stays flat — runs indefinitely    │
-└──────────┬──────────────────┬───────────────────────┘
-           │                  │
-     invokes (manage)   invokes (execute)
-           │                  │
-           ▼                  ▼
-┌────────────────────┐ ┌─────────────────────────────┐
-│  SUPERVISOR        │ │  WORKER                     │
-│  (supervisor       │ │  (worker.agent.md)          │
-│   .agent.md)       │ │                             │
-│  ────────────────  │ │  ───────────────────────    │
-│  • Manages task    │ │  • Full tool access         │
-│    lifecycle       │ │  • Reads the task file      │
-│  • Moves tasks     │ │    from tasks/in-progress/  │
-│    between folders │ │  • Executes entire task     │
-│  • Adds status &   │ │  • Writes worker-result.md  │
-│    notes to task   │ │  • Returns summary          │
-│    file            │ │                             │
-│  • Reviews worker  │ └─────────────────────────────┘
-│    results         │
-│  • Decides next    │
-│    step or ALL_DONE│
-└────────────────────┘
+└──────────┬──────────────────────────────────────────┘
+           │
+     invokes (always same prompt)
+           │
+           ▼
+┌─────────────────────────────────────────────────────┐
+│  SUPERVISOR  (supervisor.agent.md)                  │
+│  ─────────────────────────────────────────────────  │
+│  • Picks task from queue, moves to in-progress      │
+│  • Reads & understands the task fully               │
+│  • Gathers all relevant context (docs, source, etc) │
+│  • Spawns worker sub-agents with complete prompts   │
+│  • Reviews worker responses                         │
+│  • May run multiple worker rounds per task          │
+│  • Moves completed task to done                     │
+│  • Returns ALL_DONE when queue is empty             │
+│  • NEVER does implementation work itself            │
+└──────────┬──────────────────────────────────────────┘
+           │
+     invokes (with full context prompt)
+           │
+           ▼
+┌─────────────────────────────────────────────────────┐
+│  WORKER  (worker.agent.md)                          │
+│  ─────────────────────────────────────────────────  │
+│  • Full tool access                                 │
+│  • Receives all instructions via prompt             │
+│  • Executes entire task                             │
+│  • Returns detailed summary as response             │
+│  • No filesystem-based communication                │
+└─────────────────────────────────────────────────────┘
 
-Communication is file-based. The task file itself is the worker's instructions:
+Communication:
+  Orchestrator → Supervisor: fixed prompt (always the same)
+  Supervisor → Worker: detailed prompt with full task context
+  Worker → Supervisor: response summary (return value)
+  Supervisor → Orchestrator: brief status or ALL_DONE
 
+File-based state:
   tasks/queue/001-task.md          ← user places tasks here
-  tasks/in-progress/001-task.md    ← supervisor moves task here (worker reads it)
-  tasks/in-progress/worker-result.md  ← worker writes result here (supervisor reads it)
+  tasks/in-progress/001-task.md    ← supervisor moves task here while working
   tasks/done/001-task.md           ← supervisor moves completed task here
 ```
 
-## Iterative Loop — Step by Step
+## Execution Flow — Step by Step
 
 ```
-Round 1 (supervisor call):
-  Orchestrator ──invoke──► Supervisor
-    Supervisor: checks tasks/in-progress/ for state
-    Supervisor: no task in progress → picks from tasks/queue/, moves to in-progress/
-    Supervisor: adds status section to task file (attempt: 1)
-    Supervisor: deletes any stale worker-result.md
-    Supervisor: returns (no ALL_DONE → orchestrator continues)
+Orchestrator invokes Supervisor:
+  Supervisor: checks tasks/in-progress/ — nothing there
+  Supervisor: picks first task from tasks/queue/, moves to in-progress/
+  Supervisor: reads task file, gathers context (project docs, source files)
+  Supervisor: invokes Worker with complete prompt including:
+    - Task description & requirements
+    - Relevant project context
+    - Acceptance criteria
+    - Specific instructions
+  Worker: executes the task (edits code, runs commands, etc.)
+  Worker: returns detailed summary as response
+  Supervisor: evaluates worker's response against acceptance criteria
+  Supervisor: if acceptable → appends completion notes, moves task to done/
+  Supervisor: if needs fixes → invokes Worker again with fix instructions
+  Supervisor: checks queue for more tasks
+  Supervisor: picks next task or returns ALL_DONE
 
-Round 1 (worker call):
-  Orchestrator ──invoke──► Worker
-    Worker: finds the task file in tasks/in-progress/ (the .md that isn't worker-result.md or README.md)
-    Worker: reads the task file for instructions
-    Worker: executes the entire task (code, terminal, search, etc.)
-    Worker: writes result to tasks/in-progress/worker-result.md
-    Worker: returns summary to orchestrator
-
-Round 2 (supervisor call):
-  Orchestrator ──invoke──► Supervisor
-    Supervisor: finds worker-result.md → evaluates worker's output
-    Supervisor: decides next step:
-      a) Work acceptable → moves task file to done/, picks next task, moves it to in-progress/
-      b) Work needs fixes → appends notes from worker-result to the task file, increments attempt, deletes worker-result.md
-      c) All tasks complete → responds with ALL_DONE
-
-Round 2 (worker call, if not ALL_DONE):
-  Orchestrator ──invoke──► Worker
-    ... (same pattern as above)
-
-... loop continues until supervisor returns ALL_DONE ...
+Orchestrator checks for ALL_DONE:
+  If not ALL_DONE → invoke Supervisor again
+  If ALL_DONE → prompt user, stop
 ```
 
-**Expected round-trips per task: 3 agent invocations** (supervisor→worker→supervisor for the happy path, plus an optional fix cycle adding 2 more).
+**Expected overhead per task: 1 orchestrator invocation** (supervisor handles the full lifecycle including multiple worker rounds internally).
 
-## File-Based Communication
+## Supervisor → Worker Prompt Design
 
-### Files in `tasks/in-progress/`
+The supervisor must provide the worker with a self-contained prompt. The worker has no memory and cannot discover its task from the filesystem. The prompt should include:
 
-| File | Written by | Read by | Purpose |
-|------|-----------|---------|---------|
-| `*.md` (task file) | User (originally), Supervisor (adds status/notes) | Worker, Supervisor | The task itself IS the worker's instructions |
-| `worker-result.md` | Worker | Supervisor | Worker's execution result/report |
+```markdown
+## Task: {title}
 
-**There is no `worker-prompt.md`.** The task file is the single source of truth. The supervisor enriches it with status tracking and notes from previous attempts directly.
+{full task description and requirements}
 
-### Task File Format (as placed in queue by user)
+## Context
+{content from relevant project docs, existing source files, architectural decisions}
+
+## Instructions
+1. {specific step}
+2. {specific step}
+...
+
+## Acceptance Criteria
+- {criterion}
+- {criterion}
+
+## Notes
+- Commit your changes before returning
+- {any additional guidance}
+```
+
+For fix rounds, the supervisor includes:
+- What was already done (from the worker's previous response)
+- What specifically needs to be fixed
+- Any additional context for the fix
+
+## Task File Format
+
+### As placed in queue by user
 
 ```markdown
 ---
@@ -126,40 +151,24 @@ Add JWT-based authentication to the API.
 - [ ] Tokens expire after 1 hour
 ```
 
-### Task File Format (after supervisor moves to in-progress)
+### After supervisor moves to in-progress
 
 The supervisor appends a status section:
 
 ```markdown
 ---
-title: "Implement user authentication"
-priority: 1
----
-
-## Description
-Add JWT-based authentication to the API.
-
-## Requirements
-- Login endpoint at POST /auth/login
-- ...
-
-## Acceptance Criteria
-- [ ] Login returns a JWT token
-- ...
-
----
 ## Status
 - **Attempt:** 1
-- **Moved to in-progress:** 2026-03-25
+- **Moved to in-progress:** 2026-04-08
 ```
 
-### Task File Format (after a failed attempt — supervisor appends notes)
+### After a failed attempt — supervisor appends notes
 
 ```markdown
 ---
 ## Status
 - **Attempt:** 2
-- **Moved to in-progress:** 2026-03-25
+- **Moved to in-progress:** 2026-04-08
 
 ## Notes from attempt 1
 - Server starts but GET /health returns 404 — route was not registered
@@ -167,36 +176,12 @@ Add JWT-based authentication to the API.
 - Worker should check route registration order and add integration tests
 ```
 
-### `worker-result.md` Format
-
-```markdown
----
-task: "001-hello-world-api"
-status: "completed" | "failed" | "partial"
----
-
-## Summary
-Created Express server with health and greeting endpoints.
-
-## Changes Made
-- Created demo-api/package.json with express dependency
-- Created demo-api/index.js with all endpoints
-- Added start script
-
-## Test Results
-- Server starts successfully on port 3000
-- All endpoints return expected responses
-
-## Issues
-None.
-```
-
 ## Task Queue — File-Based
 
 ```
 tasks/
   queue/         ← pending tasks (user adds .md files here)
-  in-progress/   ← exactly one task file + optionally worker-result.md
+  in-progress/   ← exactly one task file (managed by supervisor)
   done/          ← completed task files (moved by supervisor)
 ```
 
@@ -206,88 +191,84 @@ Tasks are picked in alphabetical order. The supervisor moves the task file itsel
 
 ### 1. Orchestrator (`orchestrator.agent.md`)
 
-**Purpose:** Iterative loop driver. Never thinks, never plans. Alternates between calling the supervisor and the worker in a fixed pattern.
+**Purpose:** Loop driver. Never thinks, never plans. Invokes the supervisor in a fixed loop.
 
 **Tools:** `agent`, `mcp-tools-win/confirm_conversation_finished`
 
 **Behavior:**
-1. Invoke `supervisor` with one fixed prompt: *"Process tasks. Check tasks/in-progress/ for current state."*
+1. Invoke `supervisor` with one fixed prompt: *"Process the next task. Pick a task from tasks/queue/, move it to in-progress, use worker sub-agents to complete it, then move it to done. If no tasks remain, respond with ALL_DONE."*
 2. Check supervisor response for `ALL_DONE`:
    - If `ALL_DONE` found: Call `confirm_conversation_finished` and stop
-   - Otherwise: Invoke `worker` with fixed prompt to read the task file and execute
-3. After worker returns, go to step 1
+   - Otherwise: Go to step 1
 
-**Key property:** The orchestrator sends the same fixed prompt every time. No signal parsing, no differentiated prompts. The only check is whether the supervisor said `ALL_DONE`. Each loop iteration is identical in token cost.
+**Key property:** The orchestrator sends the same fixed prompt every time. Each loop iteration is identical in token cost. All state lives in files and in the supervisor's ephemeral context.
 
 ### 2. Supervisor (`supervisor.agent.md`)
 
-**Purpose:** Task lifecycle manager and progress evaluator. Manages the task queue, adds status information to task files, reviews worker results, and decides whether tasks are done or need another attempt.
+**Purpose:** Task coordinator. Owns the full lifecycle: picks tasks, understands them, gathers context, delegates to workers, reviews results, and moves completed tasks to done. Never does implementation work.
 
-**Tools:** `read`, `edit`, `execute`, `search`, `todo`, `mcp-tools-win/ask_user`
+**Tools:** `agent`, `read`, `edit`, `execute`, `search`, `todo`, `mcp-tools-win/ask_user`
 
-**Note:** The supervisor does NOT have the `agent` tool. It cannot spawn sub-agents. All delegation happens through file-based communication, with the orchestrator acting as the intermediary.
+**Behavior:**
+1. Check `tasks/in-progress/` for an existing task, or pick next from `tasks/queue/`
+2. Read and understand the task fully — requirements, acceptance criteria, referenced files
+3. Gather all relevant context the worker will need (project docs, source files, etc.)
+4. Invoke `worker` with a detailed, self-contained prompt
+5. Review the worker's response against acceptance criteria
+6. If acceptable → move task to done, pick next task or return `ALL_DONE`
+7. If needs fixes → invoke worker again with fix instructions (up to 3 attempts)
 
-**Behavior (inferred from filesystem state each invocation):**
-1. If `worker-result.md` exists in `tasks/in-progress/` → review the result, accept or request retry
-2. If a task file is in `tasks/in-progress/` with no result → worker hasn't run yet, return and let the orchestrator invoke the worker
-3. If nothing in `tasks/in-progress/` → pick next task from `tasks/queue/`, move it, add status section
-4. If queue is empty and nothing in progress → respond with `ALL_DONE`
-
-**On accepting work:** Move the task file to `tasks/done/`, delete `worker-result.md`, then pick next task if any.
-
-**On requesting retry:** Append notes from `worker-result.md` to the task file (what failed, what to try differently), increment the attempt counter, delete `worker-result.md`. The worker will read the updated task file on its next invocation.
-
-**Maximum 2 attempts per task.** If attempt 2 still fails, accept as-is and move on.
+**Key property:** The supervisor spawns workers directly via the `agent` tool. Communication is prompt-based (supervisor → worker) and response-based (worker → supervisor). No `worker-result.md` file needed.
 
 ### 3. Worker (`worker.agent.md`)
 
-**Purpose:** Full-task executor with full tool access. Reads the task file from `tasks/in-progress/`, executes the entire task in one pass, writes results to `worker-result.md`.
+**Purpose:** Full-task executor with full tool access. Receives complete instructions via the supervisor's prompt, executes the task, and returns a detailed summary as its response.
 
 **Tools:** `vscode`, `execute`, `read`, `edit`, `search`, `web`, `browser`, `mcp-tools-win/ask_user`, `todo`
-
-**Note:** The worker does NOT have the `agent` tool. It cannot spawn sub-agents.
 
 **Model:** Claude Opus 4.6 (copilot)
 
 **Behavior:**
-1. Find the task file in `tasks/in-progress/` (the `.md` file that is NOT `worker-result.md` or `README.md`)
-2. Read the task file for instructions, requirements, and acceptance criteria
-3. If the task has a "Notes from attempt N" section, use that information to avoid repeating failed approaches
-4. Execute the entire task using all available tools
-5. Write result/report to `tasks/in-progress/worker-result.md`
-6. Return a brief summary to the orchestrator
+1. Read the instructions from the invoking prompt (NOT from the filesystem)
+2. Execute the entire task using all available tools
+3. Verify work against the provided acceptance criteria
+4. Commit changes
+5. Return a detailed summary as the response
+
+**Key property:** The worker is stateless and self-contained. Its prompt IS its entire world — it does not search for tasks in the filesystem. Its response IS its deliverable — no file-based result reporting.
 
 ## Implementation Steps
 
 1. Create `tasks/queue/`, `tasks/in-progress/`, `tasks/done/` folder structure
-2. Create `orchestrator.agent.md` — the fixed alternating loop driver
-3. Create `supervisor.agent.md` — the task lifecycle manager (no agent tool, no worker-prompt.md)
-4. Create `worker.agent.md` — the full-task executor (reads task file directly, no agent tool)
+2. Create `orchestrator.agent.md` — the fixed loop driver (only calls supervisor)
+3. Create `supervisor.agent.md` — the task coordinator (has `agent` tool, spawns workers)
+4. Create `worker.agent.md` — the full-task executor (receives instructions via prompt)
 5. Add an example task in `tasks/queue/` to demonstrate the system
-6. Update `agents.txt` with new agent locations
+6. Update `agents.txt` with new agent descriptions
 
 ## Context Window Analysis
 
-| Agent        | Context per iteration | Grows over time? |
-|-------------|----------------------|------------------|
-| Orchestrator | ~fixed (same prompts + short response check) | No — each subagent call is independent |
-| Supervisor   | Worker result + task file | No — fresh invocation each round, state inferred from filesystem |
-| Worker       | Task file contents | No — fresh per invocation |
+| Agent | Context per iteration | Grows over time? |
+|---|---|---|
+| Orchestrator | ~fixed (same prompt + short response check) | No — each subagent call is independent |
+| Supervisor | Task file + context files + worker responses | No — fresh invocation each round |
+| Worker | Prompt contents only | No — fresh per invocation |
 
 The orchestrator's context is bounded because:
-- It sends the same fixed prompt to the supervisor and worker every time
-- It only checks for `ALL_DONE` in the supervisor's response — no signal parsing needed
+- It sends the same fixed prompt to the supervisor every time
+- It only checks for `ALL_DONE` in the supervisor's response
 - The `confirm_conversation_finished` tool resets the loop by getting fresh user input
-- All accumulated state (results, task progress) lives in files, not in any agent's context
+- All accumulated state lives in files, not in any agent's context
 
 ## Design Principles
 
 | Aspect | Design Choice | Rationale |
-|--------|--------------|-----------|
+|---|---|---|
 | Signal protocol | Single stop-word (`ALL_DONE`), continue is implicit | Default path requires zero special output; only one failure mode |
-| Orchestrator prompts | One fixed prompt always | Supervisor determines action from filesystem, not from orchestrator hints |
-| Task decomposition | One worker turn per task, optional fix turn | Worker (Claude Opus 4.6) can handle complex multi-file tasks in one shot |
-| Communication | Task file IS the instructions (no worker-prompt.md) | Eliminates an indirection layer; supervisor annotates the task file directly |
-| State management | Filesystem-based, inferred from file presence | Supervisor checks what exists in tasks/in-progress/ each invocation |
-| Retry info | Appended to task file as notes | Worker sees what failed previously and can try a different approach |
-| Round trips per task | 3 agent invocations (happy path) | supervisor → worker → supervisor; optional fix adds 2 more |
+| Orchestrator prompts | One fixed prompt always | Supervisor determines action from filesystem state |
+| Worker invocation | Supervisor spawns workers directly | Nested sub-agents eliminate file-based communication overhead |
+| Worker instructions | Self-contained prompt from supervisor | Worker needs no filesystem discovery; all context provided upfront |
+| Communication | Prompt-based (down) and response-based (up) | Cleaner than file-based; supervisor sees worker result immediately |
+| State management | Filesystem for task queue; prompt/response for execution | Queue state persists across invocations; execution state is ephemeral |
+| Retry info | Supervisor includes in follow-up worker prompt | Worker gets specific fix instructions without reading prior result files |
+| Overhead per task | 1 orchestrator invocation (supervisor handles worker rounds internally) | Reduced from 3+ to 1 orchestrator round-trip |

@@ -3,9 +3,9 @@ agents live in C:\Users\ben\.copilot\agents\*.agent.md
 ## Agent Hierarchy
 
 ### Task Queue System
-- orchestrator.agent.md  — Infinite loop driver. Delegates everything, never plans.
-- supervisor.agent.md    — Manages task lifecycle: moves task files between folders, adds status/notes, reviews worker results.
-- worker.agent.md        — Reads task file from tasks/in-progress/, executes full task, writes worker-result.md.
+- orchestrator.agent.md  — Infinite loop driver. Invokes supervisor repeatedly, never plans or acts.
+- supervisor.agent.md    — Owns full task lifecycle: picks tasks, spawns worker sub-agents with complete context, reviews results, moves tasks to done.
+- worker.agent.md        — Receives instructions via prompt from supervisor, executes the task, returns summary as response.
 
 ### Legacy / Proof of Concept
 - delegator.agent.md     — Original PoC passthrough delegator.
