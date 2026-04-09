@@ -94,7 +94,7 @@ Orchestrator checks for ALL_DONE:
   If ALL_DONE → prompt user, stop
 ```
 
-**Expected overhead per task: 1 orchestrator invocation** (supervisor handles the full lifecycle including multiple worker rounds internally).
+**Expected overhead per task: 1 orchestrator invocation** (supervisor handles one task including worker rounds, then returns).
 
 ## Supervisor → Worker Prompt Design
 
@@ -205,9 +205,11 @@ Tasks are picked in alphabetical order. The supervisor moves the task file itsel
 
 ### 2. Supervisor (`supervisor.agent.md`)
 
-**Purpose:** Task coordinator. Owns the full lifecycle: picks tasks, understands them, gathers context, delegates to workers, reviews results, and moves completed tasks to done. Never does implementation work.
+**Purpose:** Task coordinator. Owns the full lifecycle of **one task per invocation**: picks it, understands it, gathers context, delegates to workers, reviews results, moves it to done, and returns. Never does implementation work. The orchestrator invokes it repeatedly for successive tasks.
 
-**Tools:** `agent`, `read`, `edit`, `execute`, `search`, `todo`, `mcp-tools-win/ask_user`
+**Tools:** `agent`, `read`, `execute`, `mcp-tools-win/ask_user`
+
+**Note:** The supervisor deliberately lacks `edit` and `search` tools to prevent it from doing implementation work. It only reads files (for context) and runs terminal commands (for moving task files). All code editing, testing, and implementation is delegated to workers.
 
 **Behavior:**
 1. Check `tasks/in-progress/` for an existing task, or pick next from `tasks/queue/`

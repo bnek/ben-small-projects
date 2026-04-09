@@ -23,7 +23,7 @@ Maintain a `round_count` counter starting at 0. The `max_rounds` limit is 30.
 
 Invoke the `supervisor` agent with exactly this prompt every time:
 
-> "Process the next task. Pick a task from tasks/queue/, move it to in-progress, use worker sub-agents to complete it, then move it to done. If no tasks remain, respond with ALL_DONE."
+> "Process the next task - and ONE task only. Pick a task from tasks/queue/, move it to in-progress, use worker sub-agents to complete it, then move it to done and return. If there are no tasks in the 'queue' folder, respond with ALL_DONE."
 
 ### Step 2 — Check for ALL_DONE
 
