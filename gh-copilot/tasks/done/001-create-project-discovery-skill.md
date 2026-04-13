@@ -91,7 +91,7 @@ The SKILL.md should include practical guidance for the agent running the workflo
 - **How to discover** each area (e.g., "read package.json for dependencies", "search for logger/logging imports", "look for middleware registration")
 - **What tools to use**: `read_file` for source files, `run_in_terminal` for build/test commands, `grep`/`rg` for pattern searching
 - **How much depth**: The goal is enough documentation for a coding agent to work confidently, not exhaustive API documentation
-- **Output location**: The completed documentation should be saved to the project's repo memory at `/memories/repo/project-docs.md` or a similar conventional path
+- **Output location**: The completed documentation should be saved to the project's repo memory at `/docs/project-docs.md` or a similar conventional path
 - **Incremental approach**: If the project is large, the skill should support documenting one area/module at a time (one task per project area, as the original idea suggests)
 
 ### 5. Loadability

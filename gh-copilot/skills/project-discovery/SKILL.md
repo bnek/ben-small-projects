@@ -29,12 +29,12 @@ Load this skill when the task involves any of:
    - "How to add a feature" → tasks 1–3
    - Specific area → pick the relevant task(s)
 3. **Create worker prompts**: For each area, use the worker prompt template below. Customize the `{placeholders}` with project-specific details (project path, known tech stack, etc.)
-4. **Delegate sequentially**: Workers build up `/memories/repo/project-docs.md` incrementally. Task 1 creates the file; subsequent tasks append to it.
+4. **Delegate sequentially**: Workers build up `/docs/project-docs.md` incrementally. Task 1 creates the file; subsequent tasks append to it.
 5. **Review each worker's output**: Ensure the documentation is accurate and useful before delegating the next area
 
 ### Output File
 
-All workers write to: `/memories/repo/project-docs.md`
+All workers write to: `/docs/project-docs.md`
 - Worker 1 (Project Overview) **creates** the file with the header and Section 1
 - Workers 2–6 **append** their section to the existing file
 - A full output template is available at `references/output-template.md` for reference
@@ -95,7 +95,7 @@ Get-ChildItem "{project_path}" -Recurse -Include "package.json","*.csproj","requ
 
 ## Output Format
 
-Create the file `/memories/repo/project-docs.md` with the following content (fill in all sections):
+Create the file `/docs/project-docs.md` with the following content (fill in all sections):
 
 ```markdown
 # Project Documentation: {project_name}
@@ -160,7 +160,7 @@ project-root/
 
 Discover and document the architecture style and design patterns used in the project at `{project_path}`.
 
-Read the existing documentation at `/memories/repo/project-docs.md` first to understand the tech stack.
+Read the existing documentation at `/docs/project-docs.md` first to understand the tech stack.
 
 ## What to Discover
 
@@ -191,7 +191,7 @@ rg "(AddScoped|AddTransient|AddSingleton|@Injectable|@Inject|container\.register
 
 ## Output Format
 
-Append the following section to `/memories/repo/project-docs.md`:
+Append the following section to `/docs/project-docs.md`:
 
 ```markdown
 ---
@@ -236,7 +236,7 @@ Append the following section to `/memories/repo/project-docs.md`:
 
 Trace one representative feature through every layer of the project at `{project_path}`, from entry point to data store.
 
-Read the existing documentation at `/memories/repo/project-docs.md` first to understand the tech stack and architecture.
+Read the existing documentation at `/docs/project-docs.md` first to understand the tech stack and architecture.
 
 ## How to Pick a Feature
 
@@ -269,7 +269,7 @@ Follow the request through each layer and document file paths:
 
 ## Output Format
 
-Append the following section to `/memories/repo/project-docs.md`:
+Append the following section to `/docs/project-docs.md`:
 
 ```markdown
 ---
@@ -318,7 +318,7 @@ Append the following section to `/memories/repo/project-docs.md`:
 
 Discover and document the shared infrastructure that applies across features in the project at `{project_path}` — logging, errors, auth, config, validation.
 
-Read the existing documentation at `/memories/repo/project-docs.md` for context.
+Read the existing documentation at `/docs/project-docs.md` for context.
 
 ## What to Discover
 
@@ -351,7 +351,7 @@ rg -l "(class-validator|zod|joi|FluentValidation|pydantic|@IsString|@IsNotEmpty|
 
 ## Output Format
 
-Append the following section to `/memories/repo/project-docs.md`. For each concern, fill in the table and add a brief description with one example. Skip concerns that don't exist in the project.
+Append the following section to `/docs/project-docs.md`. For each concern, fill in the table and add a brief description with one example. Skip concerns that don't exist in the project.
 
 ```markdown
 ---
@@ -433,7 +433,7 @@ Append the following section to `/memories/repo/project-docs.md`. For each conce
 
 Discover and document how the project at `{project_path}` tests code, so agents can write tests that match existing patterns.
 
-Read the existing documentation at `/memories/repo/project-docs.md` for context.
+Read the existing documentation at `/docs/project-docs.md` for context.
 
 ## What to Discover
 
@@ -465,7 +465,7 @@ rg "\"test" package.json
 
 ## Output Format
 
-Append the following section to `/memories/repo/project-docs.md`:
+Append the following section to `/docs/project-docs.md`:
 
 ```markdown
 ---
@@ -522,7 +522,7 @@ Append the following section to `/memories/repo/project-docs.md`:
 
 Discover and document the coding conventions and standards in the project at `{project_path}`, so agents produce code that fits in.
 
-Read the existing documentation at `/memories/repo/project-docs.md` for context.
+Read the existing documentation at `/docs/project-docs.md` for context.
 
 ## What to Discover
 
@@ -554,7 +554,7 @@ Get-ChildItem -Recurse -Include "*.ts","*.js","*.cs","*.py" -Depth 3 | Select-Ob
 
 ## Output Format
 
-Append the following section to `/memories/repo/project-docs.md`:
+Append the following section to `/docs/project-docs.md`:
 
 ```markdown
 ---
@@ -623,7 +623,7 @@ Systematically explore and document an existing codebase so that coding agents h
 - Discovering patterns and conventions before making changes
 - Creating a "how to add a feature" reference via vertical slice documentation
 
-**Output location:** Save completed documentation to `/memories/repo/project-docs.md` using the [output template](./references/output-template.md).
+**Output location:** Save completed documentation to `/docs/project-docs.md` using the [output template](./references/output-template.md).
 
 ---
 
@@ -631,7 +631,7 @@ Systematically explore and document an existing codebase so that coding agents h
 
 | Property | Value |
 |----------|-------|
-| Output file | `/memories/repo/project-docs.md` |
+| Output file | `/docs/project-docs.md` |
 | Template | `references/output-template.md` |
 | Scope | Per-project — run once per codebase, update as needed |
 | Approach | Incremental — can document one area at a time |
@@ -910,7 +910,7 @@ For large projects, break discovery into separate tasks:
 2. **Task 2:** Step 3 (Vertical Slice) — how features work end-to-end
 3. **Task 3:** Steps 4–6 (Cross-cutting + Testing + Conventions) — operational details
 
-Each task appends its findings to the same output file (`/memories/repo/project-docs.md`).
+Each task appends its findings to the same output file (`/docs/project-docs.md`).
 
 ### Tools to Use
 
@@ -923,7 +923,7 @@ Each task appends its findings to the same output file (`/memories/repo/project-
 
 ### Output
 
-After completing discovery (all steps or a subset), compile your findings into the output template and save to `/memories/repo/project-docs.md`. If updating an existing document, merge your new findings into the existing sections rather than overwriting.
+After completing discovery (all steps or a subset), compile your findings into the output template and save to `/docs/project-docs.md`. If updating an existing document, merge your new findings into the existing sections rather than overwriting.
 
 ## References
 
