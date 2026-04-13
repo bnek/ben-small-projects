@@ -9,3 +9,12 @@ we need an agent skill that we can use the for the Supervisor to discover and an
 
 
 loadable as a skill for the supervisor agent and/or worker
+
+---
+## Status
+- **Attempt:** 1
+- **Moved to in-progress:** 2026-04-14
+
+## Completion Notes
+- Completed: 2026-04-14
+- Summary: Formalized the loose idea into a comprehensive task file `tasks/queue/001-create-project-discovery-skill.md`. The task defines building a `project-discovery` agent skill with a step-by-step discovery workflow covering: project overview & tech stack, architecture & patterns, vertical slice documentation, cross-cutting concerns, testing patterns, and conventions. Includes requirements for a SKILL.md and an output template, with clear acceptance criteria.
