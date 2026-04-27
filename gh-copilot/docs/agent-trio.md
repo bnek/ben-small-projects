@@ -163,3 +163,6 @@ A single task's journey through the system:
 | Task state across invocations | Filesystem (`tasks/queue/`, `tasks/in-progress/`, `tasks/done/`) |
 
 There is **no file-based handoff between supervisor and worker** — the worker's prompt is its entire world, and its response is its entire deliverable. Persistent state (which tasks exist, what's in progress, what's done, retry notes) lives on disk so that fresh sub-agent invocations can pick up where the previous one left off.
+
+## Deployment
+run /scripts/deploy-agent-trio.ps1 to deploy the agents
