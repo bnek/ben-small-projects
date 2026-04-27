@@ -2,7 +2,7 @@
 name: worker
 description: "Use when: executing a task delegated by the supervisor, coding, editing, searching, running commands"
 tools: [agent, vscode, execute, read, edit, search, web, browser, 'mcp-tools-win/ask_user', todo]
-model: Claude Opus 4.6 (copilot)
+model: Claude Opus 4.7 (copilot)
 user-invocable: false
 ---
 
